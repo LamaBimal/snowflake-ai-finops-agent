@@ -1,0 +1,22 @@
+{
+  "history_days": 60,
+  "seed": 42,
+  "scenarios": [
+    {"scenario": "OUTPUT_INFLATION", "application": "research-agent", "start_day": 20, "duration": 5,
+     "expected_cause": "OUTPUT_INFLATION", "change": {"output_tokens": 1900}},
+    {"scenario": "RAG_OVER_RETRIEVAL", "application": "rag-support-agent", "start_day": 30, "duration": 5,
+     "expected_cause": "RAG_OVER_RETRIEVAL", "change": {"rag_top_k": 25}},
+    {"scenario": "PROMPT_INFLATION", "application": "document-agent", "start_day": 40, "duration": 5,
+     "expected_cause": "PROMPT_INFLATION", "change": {"input_tokens": 6500}},
+    {"scenario": "EXPENSIVE_MODEL_ROUTING", "application": "classification-service", "start_day": 45, "duration": 5,
+     "expected_cause": "MODEL_ROUTING_CHANGE", "change": {"model": "claude-sonnet-4-5"}},
+    {"scenario": "RETRY_LOOP", "application": "sql-agent", "start_day": 50, "duration": 3,
+     "expected_cause": "RETRY_LOOP", "change": {"requests": 4800}},
+    {"scenario": "DUPLICATE_REQUESTS", "application": "summarization-service", "start_day": 12, "duration": 4,
+     "expected_cause": "DUPLICATE_REQUESTS", "change": {"duplicate_share": 0.35}},
+    {"scenario": "AGENT_LOOP", "application": "research-agent", "start_day": 36, "duration": 3,
+     "expected_cause": "AGENT_LOOP", "change": {"agent_steps": 15}},
+    {"scenario": "REPEATED_CONTEXT", "application": "document-agent", "start_day": 54, "duration": 4,
+     "expected_cause": "REPEATED_CONTEXT", "change": {"static_prefix_tokens": 4000}}
+  ]
+}

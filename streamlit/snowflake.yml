@@ -1,0 +1,28 @@
+# created-by: streamlit-in-workspaces; skill-version=1.0.0
+definition_version: 2
+entities:
+  streamlit_app:
+    type: streamlit
+    meta:
+      use_mixins:
+        - streamlit_shared
+    identifier:
+      name: BRO0J4LIE39K3DDL
+      database: AI_FINOPS
+      schema: PUBLIC
+mixins:
+  streamlit_shared:
+    artifacts:
+      - pyproject.toml
+      - streamlit_app.py
+      - .streamlit/config.toml
+      - process_diagram.html
+    query_warehouse: COMPUTE_WH
+    compute_pool: SYSTEM_COMPUTE_POOL_CPU
+    artifact_repositories:
+      - SNOWFLAKE.SNOWPARK.PYPI_SHARED_REPOSITORY
+    grants:
+      - privilege: USAGE
+        role: ACCOUNTADMIN
+        with_grant_option: true
+    main_file: streamlit_app.py
