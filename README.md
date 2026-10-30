@@ -8,6 +8,22 @@ Usage telemetry -> daily metrics -> anomaly detection -> deterministic root caus
                                                                                    -> savings + quality check
 ```
 
+## Interactive walkthrough
+
+Explore the [How It Works page](https://lamabimal.github.io/snowflake-ai-finops-agent/) for a visual explanation of the agent. Click the boxes in the pipeline diagram to inspect each stage, from usage telemetry and daily metrics through anomaly detection, root-cause analysis, Cortex AI explanations, and recommendations.
+
+The page explains the three questions the agent answers:
+
+- **Did AI cost behave abnormally?** A rolling 7-day Z-score across 9 daily metrics per application, with Isolation Forest as a second detector.
+- **What caused it?** Ordered, deterministic rules evaluate before-and-after evidence; Cortex AI explains the findings.
+- **What should change, and is it safe?** Recommendations combine a playbook action, simulated savings, and measured quality impact for model changes.
+
+Page source: [docs/index.html](docs/index.html).
+
+### GitHub Pages publishing
+
+To publish `docs/index.html` at the site home page, configure **Settings → Pages → Deploy from a branch → main → /docs**, or use **GitHub Actions** as the Pages source and set the upload path in [the deployment workflow](.github/workflows/static.yml) to `'./docs'`.
+
 ## Status
 
 | Phase | State |
@@ -58,7 +74,7 @@ snowflake-ai-finops-agent/
 ├── evaluation/                    anomaly_evaluation.py, quality_evaluation.py, savings_simulation.py, *.json
 ├── streamlit/                     streamlit_app.py, snowflake.yml, pyproject.toml
 ├── tests/                         test_rules.py, test_evaluation.py
-└── docs/                          governance.md, cost-analysis.md, lessons-learned.md
+└── docs/                          index.html (interactive walkthrough), governance.md, cost-analysis.md, lessons-learned.md
 ```
 
 ## Run
@@ -106,3 +122,4 @@ See [docs/governance.md](docs/governance.md) and [docs/lessons-learned.md](docs/
 ## License
 
 Educational, research and portfolio use. Choose an open-source license before public distribution.
+
