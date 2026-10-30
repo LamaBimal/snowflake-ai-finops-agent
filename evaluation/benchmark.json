@@ -1,0 +1,54 @@
+[
+  {
+    "threshold": "HIGH",
+    "tp": 8,
+    "fp": 1,
+    "fn": 26,
+    "precision": 0.8888888888888888,
+    "recall": 0.23529411764705882,
+    "f1": 0.3720930232558139,
+    "fpr": 0.0033783783783783786,
+    "events_detected": "8/8",
+    "mean_delay_days": 0.0,
+    "detector": "ZSCORE_7D"
+  },
+  {
+    "threshold": "HIGH+WARNING",
+    "tp": 19,
+    "fp": 27,
+    "fn": 15,
+    "precision": 0.41304347826086957,
+    "recall": 0.5588235294117647,
+    "f1": 0.475,
+    "fpr": 0.09121621621621621,
+    "events_detected": "8/8",
+    "mean_delay_days": 0.0,
+    "detector": "ZSCORE_7D"
+  },
+  {
+    "threshold": "HIGH",
+    "tp": 10,
+    "fp": 7,
+    "fn": 24,
+    "precision": 0.5882352941176471,
+    "recall": 0.29411764705882354,
+    "f1": 0.3921568627450981,
+    "fpr": 0.02364864864864865,
+    "events_detected": "6/8",
+    "mean_delay_days": 0.0,
+    "detector": "ISOLATION_FOREST"
+  },
+  {
+    "threshold": "HIGH+WARNING",
+    "tp": 15,
+    "fp": 18,
+    "fn": 19,
+    "precision": 0.45454545454545453,
+    "recall": 0.4411764705882353,
+    "f1": 0.4477611940298507,
+    "fpr": 0.060810810810810814,
+    "events_detected": "6/8",
+    "mean_delay_days": 0.0,
+    "detector": "ISOLATION_FOREST"
+  }
+]

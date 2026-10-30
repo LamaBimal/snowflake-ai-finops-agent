@@ -1,0 +1,39 @@
+-- 01_setup.sql : database, schemas, raw tables
+CREATE DATABASE IF NOT EXISTS AI_FINOPS;
+CREATE SCHEMA IF NOT EXISTS AI_FINOPS.RAW;
+CREATE SCHEMA IF NOT EXISTS AI_FINOPS.ANALYTICS;
+CREATE SCHEMA IF NOT EXISTS AI_FINOPS.DETECTION;
+
+-- Synthetic usage, one row per application / hour / model
+CREATE TABLE IF NOT EXISTS AI_FINOPS.RAW.SYNTHETIC_USAGE (
+    USAGE_TIME     TIMESTAMP_LTZ,
+    QUERY_ID       VARCHAR,
+    APPLICATION    VARCHAR,
+    USER_ID        VARCHAR,
+    ROLE_NAME      VARCHAR,
+    FUNCTION_NAME  VARCHAR,
+    MODEL_NAME     VARCHAR,
+    INPUT_TOKENS   NUMBER,
+    OUTPUT_TOKENS  NUMBER,
+    CREDITS        FLOAT,
+    REQUEST_COUNT  NUMBER,
+    RETRY_COUNT    NUMBER,
+    RAG_TOP_K      NUMBER,
+    DUPLICATE_COUNT        NUMBER,   -- requests whose fingerprint (template + inputs) repeats within the hour
+    AGENT_STEPS            NUMBER,   -- total LLM steps across the hour's requests (1 per request for non-agents)
+    CACHEABLE_INPUT_TOKENS NUMBER    -- input tokens that are an identical static prefix (system prompt, docs)
+);
+
+-- Columns added after the first release
+ALTER TABLE AI_FINOPS.RAW.SYNTHETIC_USAGE ADD COLUMN IF NOT EXISTS DUPLICATE_COUNT NUMBER;
+ALTER TABLE AI_FINOPS.RAW.SYNTHETIC_USAGE ADD COLUMN IF NOT EXISTS AGENT_STEPS NUMBER;
+ALTER TABLE AI_FINOPS.RAW.SYNTHETIC_USAGE ADD COLUMN IF NOT EXISTS CACHEABLE_INPUT_TOKENS NUMBER;
+
+-- Ground truth for the injected anomaly scenarios
+CREATE TABLE IF NOT EXISTS AI_FINOPS.RAW.ANOMALY_LABELS (
+    SCENARIO       VARCHAR,
+    APPLICATION    VARCHAR,
+    START_DATE     DATE,
+    END_DATE       DATE,
+    EXPECTED_CAUSE VARCHAR
+);

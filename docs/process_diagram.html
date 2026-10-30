@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snowflake AI FinOps Agent — How It Works</title>
+<style>
+  :root{
+    --bg:#f6f8fb; --card:#fff; --ink:#1b2430; --muted:#5b6778; --line:#c9d3e0;
+    --src:#e8f1ff; --srcb:#4a7fd4; --ana:#eaf8f0; --anab:#2f9e63; --det:#fff4e5; --detb:#e08a1e;
+    --rc:#fdecef; --rcb:#d1435b; --ai:#f1ecff; --aib:#7a55d6; --out:#e9f7f8; --outb:#1f9aa6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45}
+  header{background:linear-gradient(135deg,#0f3d75,#1f6fc7);color:#fff;padding:28px 40px}
+  header h1{margin:0 0 6px;font-size:26px}
+  header p{margin:0;opacity:.9;max-width:900px}
+  main{max-width:1240px;margin:0 auto;padding:24px 28px 60px}
+  h2{font-size:19px;margin:34px 0 12px;border-left:4px solid #1f6fc7;padding-left:10px}
+  .card{background:var(--card);border:1px solid #e1e7ef;border-radius:10px;padding:18px 20px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .questions{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .questions .card b{display:block;font-size:15px;margin-bottom:4px}
+  /* diagram */
+  .diagram-wrap{overflow-x:auto}
+  svg text{font-family:inherit}
+  .node{cursor:pointer;transition:filter .15s}
+  .node:hover{filter:brightness(.96) drop-shadow(0 2px 4px rgba(0,0,0,.15))}
+  .node.active rect{stroke-width:3}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:13px;color:var(--muted)}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .sw{width:14px;height:14px;border-radius:3px;border:2px solid}
+  #detail{margin-top:14px;min-height:150px}
+  #detail h3{margin:0 0 4px;font-size:17px}
+  #detail .tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;margin-bottom:8px;color:#fff}
+  #detail ul{margin:6px 0 0 18px;padding:0}
+  #detail code{background:#f1f4f8;padding:1px 5px;border-radius:4px;font-size:12.5px}
+  .hint{color:var(--muted);font-size:13px}
+  table{border-collapse:collapse;width:100%;font-size:13.5px}
+  th,td{text-align:left;padding:7px 10px;border-bottom:1px solid #e6ebf2}
+  th{background:#f3f6fa;font-weight:600}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  .kpi{background:var(--card);border:1px solid #e1e7ef;border-radius:10px;padding:14px 16px}
+  .kpi .v{font-size:24px;font-weight:700;color:#0f3d75}
+  .kpi .l{font-size:12.5px;color:var(--muted)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:11.5px;font-weight:600}
+  .ok{background:#e3f6ea;color:#1e7a46}.warn{background:#fff1dc;color:#9a5a00}.bad{background:#fde4e8;color:#a8233a}
+  pre{background:#0f1b2d;color:#d7e3f4;padding:14px 16px;border-radius:8px;overflow-x:auto;font-size:12.5px;margin:0}
+  .steps{counter-reset:s;list-style:none;padding:0;margin:0}
+  .steps li{counter-increment:s;position:relative;padding:10px 12px 10px 48px;border-bottom:1px dashed #e1e7ef}
+  .steps li::before{content:counter(s);position:absolute;left:10px;top:10px;width:26px;height:26px;border-radius:50%;background:#1f6fc7;color:#fff;font-weight:700;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .note{font-size:12.5px;color:var(--muted);margin-top:8px}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:40px}
+  @media(max-width:900px){.questions,.grid2,.kpis{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Snowflake AI FinOps Agent — How the Process Works</h1>
+  <p>Detects abnormal Cortex AI token and credit usage, identifies the root cause from evidence, explains it with Cortex AI,
+     and recommends fixes that are checked against cost <em>and</em> quality. Everything runs inside the <code>AI_FINOPS</code> database.</p>
+</header>
+
+<main>
+
+<h2>The three questions it answers</h2>
+<div class="questions">
+  <div class="card"><b>1. Did AI cost behave abnormally?</b>Rolling 7-day Z-score on 9 daily metrics per application, with Isolation Forest as a second detector.</div>
+  <div class="card"><b>2. What caused it?</b>Ordered, deterministic rules on before/after evidence. The LLM never decides the cause.</div>
+  <div class="card"><b>3. What should change, and is it safe?</b>Playbook action + simulated saving + measured quality impact for model changes.</div>
+</div>
+
+<h2>End-to-end flow <span class="hint">(click any box for details)</span></h2>
+<div class="card diagram-wrap">
+<svg id="flow" viewBox="0 0 1180 760" width="100%" role="img" aria-label="Pipeline diagram">
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#8a97aa"/>
+    </marker>
+  </defs>
+
+  <!-- lane labels -->
+  <g font-size="12" fill="#8a97aa" font-weight="600">
+    <text x="12" y="62">SOURCES</text>
+    <text x="12" y="212">NORMALIZE</text>
+    <text x="12" y="352">DETECT</text>
+    <text x="12" y="482">EXPLAIN</text>
+    <text x="12" y="622">DECIDE</text>
+  </g>
+
+  <!-- edges -->
+  <g stroke="#8a97aa" stroke-width="1.8" fill="none" marker-end="url(#arr)">
+    <path d="M210,92 L210,118 L470,118 L470,180"/>
+    <path d="M470,92 L470,180"/>
+    <path d="M730,92 L730,118 L470,118"/>
+    <path d="M990,92 L990,150 L640,150 L640,200"/>
+    <path d="M560,220 L640,220"/>
+    <path d="M800,220 L860,220"/>
+    <path d="M950,250 L950,290 L380,290 L380,320"/>
+    <path d="M950,250 L950,290 L780,290 L780,320"/>
+    <path d="M380,380 L380,400 L580,400 L580,412"/>
+    <path d="M780,380 L780,400 L580,400"/>
+    <path d="M580,448 L580,470"/>
+    <path d="M580,530 L580,548"/>
+    <path d="M580,606 L580,620 L240,620 L240,632"/>
+    <path d="M580,606 L580,632"/>
+    <path d="M580,606 L580,620 L920,620 L920,632"/>
+    <path d="M240,692 L240,716 L520,716"/>
+    <path d="M580,692 L580,708"/>
+    <path d="M920,692 L920,716 L640,716"/>
+    <path d="M780,380 L780,400 L1080,400 L1080,632" stroke-dasharray="5 4"/>
+    <path d="M1080,692 L1080,716 L640,716" stroke-dasharray="5 4"/>
+  </g>
+
+  <!-- nodes: id, x,y,w,h, fill, stroke, title, sub -->
+  <g id="nodes"></g>
+</svg>
+<div class="legend">
+  <span><i class="sw" style="background:var(--src);border-color:var(--srcb)"></i>Source data</span>
+  <span><i class="sw" style="background:var(--ana);border-color:var(--anab)"></i>Analytics views</span>
+  <span><i class="sw" style="background:var(--det);border-color:var(--detb)"></i>Detection</span>
+  <span><i class="sw" style="background:var(--rc);border-color:var(--rcb)"></i>Root cause (deterministic)</span>
+  <span><i class="sw" style="background:var(--ai);border-color:var(--aib)"></i>Cortex AI</span>
+  <span><i class="sw" style="background:var(--out);border-color:var(--outb)"></i>Evaluation &amp; output</span>
+  <span>- - - benchmark only</span>
+</div>
+<div id="detail" class="card" style="margin-top:14px">
+  <p class="hint">Select a box in the diagram to see what it does, which Snowflake objects implement it, and its key logic.</p>
+</div>
+</div>
+
+<h2>Root-cause rules (first match wins)</h2>
+<div class="card">
+<table>
+  <thead><tr><th>#</th><th>Cause</th><th>Condition (vs 7-day pre-incident baseline)</th><th>Playbook action</th><th>Saving range</th></tr></thead>
+  <tbody>
+    <tr><td>1</td><td>RETRY_LOOP</td><td>retry ratio ≥ 20% and requests ≥ 1.5×</td><td>Capped retries + exponential backoff, idempotency keys</td><td>60–80%</td></tr>
+    <tr><td>2</td><td>DUPLICATE_REQUESTS</td><td>duplicate ratio ≥ 20% and ≥ 2× baseline</td><td>Response cache keyed on request fingerprint</td><td>25–35%</td></tr>
+    <tr><td>3</td><td>AGENT_LOOP</td><td>agent steps / request ≥ 2×</td><td>Cap iterations (max 4), stop condition, loop detection</td><td>60–80%</td></tr>
+    <tr><td>4</td><td>REQUEST_VOLUME_SPIKE</td><td>requests ≥ 2×</td><td>Verify organic traffic; caching, rate limits</td><td>10–40%</td></tr>
+    <tr><td>5</td><td>MODEL_ROUTING_CHANGE</td><td>primary model changed</td><td>Route back to smaller model behind a quality gate</td><td>60–95%</td></tr>
+    <tr><td>6</td><td>REPEATED_CONTEXT</td><td>static-prefix tokens / step ≥ 1.5× and input / request ≥ 1.5×</td><td>Reuse / cache the static prefix</td><td>40–65%</td></tr>
+    <tr><td>7</td><td>RAG_OVER_RETRIEVAL</td><td>dynamic input / step ≥ 1.5× and top_k increased</td><td>top_k back to 5–8, reranker</td><td>30–45%</td></tr>
+    <tr><td>8</td><td>PROMPT_INFLATION</td><td>dynamic input / step ≥ 1.5×</td><td>Trim history / system prompt, cap input</td><td>30–60%</td></tr>
+    <tr><td>9</td><td>OUTPUT_INFLATION</td><td>output / step ≥ 1.5×</td><td>max_tokens (e.g. 800), concise format</td><td>15–35%</td></tr>
+    <tr><td>–</td><td>UNKNOWN</td><td>no rule matched → confidence 0.30</td><td>Investigate manually</td><td>–</td></tr>
+  </tbody>
+</table>
+<p class="note">Growth is measured after removing parts already explained by another driver (duplicates, agent steps, static prefix), so one change counts as one driver.
+Confidence: 0.95 single driver with |z| ≥ 5 · 0.80 single driver · 0.60 multiple drivers · 0.30 unknown.</p>
+</div>
+
+<h2>Results (synthetic data: 60 days, 6 apps, 8 injected scenarios)</h2>
+<div class="kpis">
+  <div class="kpi"><div class="v">8 / 8</div><div class="l">scenarios detected on day 1 (Z-score)</div></div>
+  <div class="kpi"><div class="v">8 / 8</div><div class="l">correct root cause, single driver each</div></div>
+  <div class="kpi"><div class="v">−72%</div><div class="l">incident spend after fixes (114.0 → 32.1 credits)</div></div>
+  <div class="kpi"><div class="v">−17.2%</div><div class="l">30-day spend (458.1 → 379.2 credits)</div></div>
+</div>
+
+<div class="grid2" style="margin-top:16px">
+  <div class="card">
+    <b>Detector benchmark</b>
+    <table style="margin-top:8px">
+      <thead><tr><th>Detector</th><th>Threshold</th><th class="num">Precision</th><th class="num">Recall</th><th class="num">FPR</th><th class="num">Caught</th></tr></thead>
+      <tbody>
+        <tr><td>Z-score</td><td>HIGH</td><td class="num">0.889</td><td class="num">0.235</td><td class="num">0.3%</td><td class="num">8/8</td></tr>
+        <tr><td>Z-score</td><td>HIGH+WARN</td><td class="num">0.413</td><td class="num">0.559</td><td class="num">9.1%</td><td class="num">8/8</td></tr>
+        <tr><td>Isolation Forest</td><td>HIGH</td><td class="num">0.588</td><td class="num">0.294</td><td class="num">2.4%</td><td class="num">6/8</td></tr>
+        <tr><td>Isolation Forest</td><td>HIGH+WARN</td><td class="num">0.455</td><td class="num">0.441</td><td class="num">6.1%</td><td class="num">6/8</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Day-level recall is low by design: from day 2 the anomaly is inside the 7-day baseline. Alerting relies on day-1 detection.</p>
+  </div>
+  <div class="card">
+    <b>Model routing (67 validated tickets, 18 ambiguous)</b>
+    <table style="margin-top:8px">
+      <thead><tr><th>Model</th><th class="num">Accuracy</th><th class="num">Credits / 1K req</th><th class="num">vs Claude</th></tr></thead>
+      <tbody>
+        <tr><td>mistral-7b</td><td class="num">83.6%</td><td class="num">0.009</td><td class="num">−99.5%</td></tr>
+        <tr><td>llama3.1-8b</td><td class="num">89.6%</td><td class="num">0.012</td><td class="num">−99.3%</td></tr>
+        <tr><td><b>llama3.1-70b</b> <span class="pill ok">recommended</span></td><td class="num">95.5%</td><td class="num">0.038</td><td class="num">−97.7%</td></tr>
+        <tr><td>claude-sonnet-4-5</td><td class="num">100%*</td><td class="num">1.667</td><td class="num">–</td></tr>
+      </tbody>
+    </table>
+    <p class="note">Rule: cheapest model with accuracy ≥ 95%. *Claude also validated the labels, so its score is biased upward. Rates are this account's billed credits per token.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top:16px">
+  <b>Savings simulation by incident</b>
+  <table style="margin-top:8px">
+    <thead><tr><th>Application</th><th>Root cause</th><th>Counterfactual fix</th><th class="num">Before</th><th class="num">After</th><th class="num">Saving</th><th>Quality</th></tr></thead>
+    <tbody>
+      <tr><td>sql-agent</td><td>RETRY_LOOP</td><td>retries capped at 1%</td><td class="num">37.19</td><td class="num">7.58</td><td class="num">80%</td><td><span class="pill warn">assumed unchanged</span></td></tr>
+      <tr><td>research-agent</td><td>AGENT_LOOP</td><td>max 4 agent steps</td><td class="num">22.57</td><td class="num">6.02</td><td class="num">73%</td><td><span class="pill warn">assumed unchanged</span></td></tr>
+      <tr><td>rag-support-agent</td><td>RAG_OVER_RETRIEVAL</td><td>top_k 25 → 5</td><td class="num">16.57</td><td class="num">4.58</td><td class="num">72%</td><td><span class="pill warn">assumed unchanged</span></td></tr>
+      <tr><td>classification-service</td><td>MODEL_ROUTING_CHANGE</td><td>back to mistral-7b</td><td class="num">11.10</td><td class="num">0.52</td><td class="num">95%</td><td><span class="pill bad">measured 100% → 83.6%</span></td></tr>
+      <tr><td>research-agent</td><td>OUTPUT_INFLATION</td><td>max_tokens 800</td><td class="num">9.29</td><td class="num">6.97</td><td class="num">25%</td><td><span class="pill warn">assumed unchanged</span></td></tr>
+      <tr><td>document-agent</td><td>PROMPT_INFLATION</td><td>input back to baseline</td><td class="num">8.13</td><td class="num">2.63</td><td class="num">68%</td><td><span class="pill warn">assumed unchanged</span></td></tr>
+      <tr><td>document-agent</td><td>REPEATED_CONTEXT</td><td>static prefix reused</td><td class="num">7.27</td><td class="num">2.53</td><td class="num">65%</td><td><span class="pill warn">assumed unchanged</span></td></tr>
+      <tr><td>summarization-service</td><td>DUPLICATE_REQUESTS</td><td>response cache</td><td class="num">1.92</td><td class="num">1.26</td><td class="num">34%</td><td><span class="pill warn">assumed unchanged</span></td></tr>
+    </tbody>
+  </table>
+  <p class="note">Credits, synthetic data. The model-routing case shows why quality must be checked: the cheapest fix falls below the 95% accuracy bar, so the optimizer recommends llama3.1-70b instead.</p>
+</div>
+
+<h2>Daily schedule (task graph — created suspended)</h2>
+<div class="grid2">
+  <div class="card">
+<pre>TASK_DAILY_DETECTION        06:00 UTC   SP_DETECT_ANOMALIES(3)
+ ├─ TASK_BUILD_INCIDENTS                SP_BUILD_INCIDENTS()
+ │   └─ TASK_EXPLAIN_INCIDENTS          SP_EXPLAIN_INCIDENTS(FALSE)
+ └─ TASK_ISOLATION_FOREST    WHEN SYSTEM$STREAM_HAS_DATA(
+                               RAW.SYNTHETIC_USAGE_STREAM)
+                                        SP_DETECT_ISOLATION_FOREST()</pre>
+    <p class="note">Enable: <code>SELECT SYSTEM$TASK_DEPENDENTS_ENABLE('AI_FINOPS.DETECTION.TASK_DAILY_DETECTION');</code></p>
+  </div>
+  <div class="card">
+    <b>One daily run, step by step</b>
+    <ol class="steps">
+      <li>Recompute daily metrics per app from Cortex usage (views, always current).</li>
+      <li>Score the last 3 days against each app's 7-day baseline; store WARNING/HIGH rows.</li>
+      <li>Group consecutive flagged days into incidents starting at the first HIGH day.</li>
+      <li>Apply rules to before/after evidence → root cause + confidence.</li>
+      <li>Ask Cortex to explain new incidents using only the evidence and playbook.</li>
+      <li>If new usage arrived, retrain Isolation Forest as a second opinion.</li>
+    </ol>
+  </div>
+</div>
+
+<h2>Design principles</h2>
+<div class="questions">
+  <div class="card"><b>Deterministic before LLM</b>Statistics and rules find the anomaly and its cause; Cortex only turns evidence into readable text with a fixed JSON schema.</div>
+  <div class="card"><b>Cost is checked against quality</b>Routing recommendations come from measured accuracy on a validated ticket set, not from model size or price alone.</div>
+  <div class="card"><b>Every recommendation is explainable</b>Problem, evidence, action, saving estimate (computed in SQL), quality risk, and confidence.</div>
+</div>
+
+<h2>Known limitations</h2>
+<div class="card">
+  <ul style="margin:0 0 0 18px">
+    <li>Results come from synthetic data; real Cortex usage in this account is small and mostly untagged.</li>
+    <li>Quality impact is measured only for model changes; other fixes are assumed quality-neutral.</li>
+    <li>AI-function latency is not available (usage history is in hourly buckets); Cortex Agent latency is captured when agents are used.</li>
+    <li>Cortex Agent and Cortex Search views are wired in but currently empty in this account.</li>
+    <li>Model credit rates rest on a few billed calls and sharpen as <code>ACCOUNT_USAGE</code> catches up.</li>
+  </ul>
+</div>
+
+<footer>Snowflake AI FinOps Agent · AI_FINOPS database · numbers from DETECTION.DETECTOR_BENCHMARK, SAVINGS_SIMULATION and MODEL_ROUTING_RESULTS</footer>
+</main>
+
+<script>
+const C = {
+  src:["var(--src)","var(--srcb)","Source"], ana:["var(--ana)","var(--anab)","Analytics"],
+  det:["var(--det)","var(--detb)","Detection"], rc:["var(--rc)","var(--rcb)","Root cause"],
+  ai:["var(--ai)","var(--aib)","Cortex AI"], out:["var(--out)","var(--outb)","Evaluation & output"]
+};
+const N = [
+  {id:"fn",  t:"src", x:110, y:32, w:200, h:60, title:"AI functions usage", sub:"CORTEX_AI_FUNCTIONS_USAGE_HISTORY",
+   what:"Real Cortex AI function telemetry: tokens, credits, model, query tag, completion status.",
+   objs:["SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AI_FUNCTIONS_USAGE_HISTORY","ANALYTICS.V_CORTEX_USAGE"],
+   pts:["Token metrics are flattened from the METRICS array (input / output / total).","APPLICATION comes from QUERY_TAG: plain string or JSON <code>{\"app\": ...}</code>.","FAILED_COUNT from IS_COMPLETED; latency left NULL because times are hourly buckets."]},
+  {id:"ag",  t:"src", x:370, y:32, w:200, h:60, title:"Cortex Agents usage", sub:"CORTEX_AGENT_USAGE_HISTORY",
+   what:"Per-request Cortex Agent usage, including tool and model calls.",
+   objs:["SNOWFLAKE.ACCOUNT_USAGE.CORTEX_AGENT_USAGE_HISTORY","ANALYTICS.V_CORTEX_AGENT_USAGE"],
+   pts:["Tokens summed from TOKENS_GRANULAR; number of entries = agent steps.","Latency = END_TIME − START_TIME per request.","Attributed as <code>agent:&lt;db&gt;.&lt;schema&gt;.&lt;name&gt;</code>. Currently empty in this account."]},
+  {id:"se",  t:"src", x:630, y:32, w:200, h:60, title:"Cortex Search usage", sub:"CORTEX_SEARCH_DAILY_USAGE_HISTORY",
+   what:"Daily credits and tokens per Cortex Search service.",
+   objs:["SNOWFLAKE.ACCOUNT_USAGE.CORTEX_SEARCH_DAILY_USAGE_HISTORY","ANALYTICS.V_CORTEX_SEARCH_USAGE"],
+   pts:["Daily grain only: no request counts or latency.","Attributed as <code>search:&lt;db&gt;.&lt;schema&gt;.&lt;service&gt;</code>. Currently empty."]},
+  {id:"syn", t:"src", x:890, y:32, w:200, h:60, title:"Synthetic workload", sub:"data/synthetic_usage.py",
+   what:"60 days of hourly usage for 6 applications with 8 injected anomaly scenarios and ground-truth labels.",
+   objs:["RAW.SYNTHETIC_USAGE (+ SYNTHETIC_USAGE_STREAM)","RAW.ANOMALY_LABELS","data/anomaly_scenarios/scenarios.json"],
+   pts:["Scenarios: output inflation, RAG over-retrieval, prompt inflation, model routing, retry loop, duplicate requests, agent loop, repeated context.","Extra columns: DUPLICATE_COUNT, AGENT_STEPS, CACHEABLE_INPUT_TOKENS.","Fixed seed; a separate random stream for later columns keeps original values identical."]},
+  {id:"um",  t:"ana", x:380, y:190, w:180, h:60, title:"AI_USAGE_METRICS", sub:"unified request-level view",
+   what:"Unions real (AI functions, Agents, Search) and synthetic usage into one schema with a SOURCE column.",
+   objs:["ANALYTICS.AI_USAGE_METRICS"],
+   pts:["Adds TOTAL_TOKENS, TOKENS_PER_REQUEST, CREDITS_PER_REQUEST.","SOURCE = REAL | SYNTHETIC so the dashboard and detectors can filter."]},
+  {id:"dm",  t:"ana", x:640, y:190, w:160, h:60, title:"DAILY_METRICS", sub:"app × UTC day",
+   what:"Daily aggregates per application, bucketed in UTC.",
+   objs:["ANALYTICS.DAILY_METRICS"],
+   pts:["Credits, tokens, requests, tokens/request, retry / duplicate ratios, agent steps, static-context ratio.","Failure rate, latency (where available), primary model, RAG top_k."]},
+  {id:"base",t:"ana", x:860, y:190, w:180, h:60, title:"7-day baseline", sub:"rolling window per metric",
+   what:"For each app and metric: mean and standard deviation of the 7 preceding days (current day excluded).",
+   objs:["DETECTION.V_ZSCORE (window functions)"],
+   pts:["Std floored at 5% of the mean; ratio metrics also floored at 0.005.","Fewer than 5 baseline days → INSUFFICIENT_HISTORY."]},
+  {id:"z",   t:"det", x:280, y:320, w:200, h:60, title:"Z-score detector", sub:"SP_DETECT_ANOMALIES",
+   what:"Scores 9 metrics per app-day; |z| ≥ 2 WARNING, |z| ≥ 3 HIGH. Primary detector for alerting and incidents.",
+   objs:["DETECTION.V_ZSCORE","DETECTION.SP_DETECT_ANOMALIES(LOOKBACK_DAYS)","DETECTION.ANOMALIES (DETECTOR='ZSCORE_7D')"],
+   pts:["Idempotent MERGE: rerunning a window updates instead of duplicating.","Catches 8/8 scenarios on day 1; HIGH precision 0.889, FPR 0.3%."]},
+  {id:"if",  t:"det", x:680, y:320, w:200, h:60, title:"Isolation Forest", sub:"SP_DETECT_ISOLATION_FOREST",
+   what:"Multivariate detector run inside Snowflake with scikit-learn (Snowpark Python procedure).",
+   objs:["DETECTION.V_IF_FEATURES","DETECTION.SP_DETECT_ISOLATION_FOREST(0.05, 30)","DETECTION.ANOMALIES (DETECTOR='ISOLATION_FOREST')"],
+   pts:["Features: log ratio of each metric to its 7-day mean (comparable across apps).","Contamination 0.05 (generic prior, not tuned to labels).","Second opinion and benchmark; catches 6/8, FPR 2.4%."]},
+  {id:"an",  t:"det", x:480, y:412, w:200, h:36, title:"ANOMALIES table", sub:"",
+   what:"One row per app, day, metric and detector with expected vs observed value, % change, score and severity.",
+   objs:["DETECTION.ANOMALIES"], pts:["Both detectors write here, so they can be benchmarked like-for-like."]},
+  {id:"inc", t:"rc",  x:460, y:470, w:240, h:60, title:"Incidents + root cause", sub:"SP_BUILD_INCIDENTS",
+   what:"Groups consecutive flagged days into incidents and applies the ordered root-cause rules to before/after evidence.",
+   objs:["DETECTION.V_INCIDENT_CANDIDATES","DETECTION.SP_BUILD_INCIDENTS()","DETECTION.INCIDENTS","root_cause/rules.py (same rules, unit-tested)"],
+   pts:["Incident starts at the first HIGH day; WARNING-only runs are not promoted.","Evidence JSON stores baseline vs observed for every signal, plus driver count.","8/8 correct causes; a false positive is left as UNKNOWN (0.30)."]},
+  {id:"ai",  t:"ai",  x:460, y:548, w:240, h:58, title:"Cortex explanation", sub:"SP_EXPLAIN_INCIDENTS · AI_COMPLETE",
+   what:"llama3.1-70b turns evidence and the playbook entry into a structured explanation. It may not change the cause or invent numbers.",
+   objs:["DETECTION.RECOMMENDATION_PLAYBOOK","DETECTION.SP_EXPLAIN_INCIDENTS(FORCE)","DETECTION.INCIDENT_EXPLANATIONS","DETECTION.V_INCIDENT_REPORT","agent/prompts/explain_incident.txt"],
+   pts:["Structured output: problem, evidence[], recommendation, estimated_saving, quality_risk, confidence.","Saving estimate = excess credits × playbook range, computed in SQL.","Temperature 0; only new incidents are explained on scheduled runs."]},
+  {id:"sav", t:"out", x:140, y:632, w:200, h:60, title:"Savings simulation", sub:"evaluation/savings_simulation.py",
+   what:"Applies each fix as a concrete counterfactual to the incident days and re-prices the tokens.",
+   objs:["DETECTION.SAVINGS_SIMULATION","evaluation/savings_simulation.json"],
+   pts:["e.g. top_k → 5, max_tokens 800, retries capped 1%, max 4 agent steps, cache duplicates, reuse static prefix.","Incident spend −72%; 30-day spend −17.2%."]},
+  {id:"rt",  t:"out", x:480, y:632, w:200, h:60, title:"Model routing", sub:"model_routing/*",
+   what:"Classifies 67 validated support tickets with 4 models; picks the cheapest model meeting the accuracy bar.",
+   objs:["RAW.ROUTING_EVAL_SET","DETECTION.ROUTING_PREDICTIONS","DETECTION.MODEL_ROUTING_RESULTS"],
+   pts:["Tickets generated by llama3.1-70b, labels confirmed by claude-sonnet-4-5 (28 of 95 dropped).","Cost = measured tokens × this account's billed credits per token.","Recommended: llama3.1-70b (95.5%), 97.7% cheaper than Claude."]},
+  {id:"rep", t:"out", x:820, y:632, w:200, h:60, title:"Incident report", sub:"V_INCIDENT_REPORT",
+   what:"Joins incidents, playbook and explanations into one row per incident for the dashboard.",
+   objs:["DETECTION.V_INCIDENT_REPORT"], pts:["Includes baseline vs observed credits, confidence, quality risk, AI text, saving range."]},
+  {id:"bm",  t:"out", x:990, y:632, w:180, h:60, title:"Detector benchmark", sub:"anomaly_evaluation.py",
+   what:"Compares Z-score and Isolation Forest against the injected labels.",
+   objs:["DETECTION.DETECTOR_BENCHMARK","evaluation/benchmark.json"],
+   pts:["Precision, recall, F1, false-positive rate, scenarios caught, detection delay."]},
+  {id:"ui",  t:"out", x:520, y:708, w:120, h:44, title:"Dashboard", sub:"",
+   what:"Streamlit app with six tabs: spend overview, anomaly center, root cause & recommendations, savings simulation, detector benchmark, model routing.",
+   objs:["streamlit/streamlit_app.py","Warehouse COMPUTE_WH · pool SYSTEM_COMPUTE_POOL_CPU"],
+   pts:["Filter REAL vs SYNTHETIC and lookback window.","Parameterized queries; cached loaders with a refresh button."]},
+];
+
+const g = document.getElementById("nodes");
+const ns = "http://www.w3.org/2000/svg";
+N.forEach(n=>{
+  const [fill,stroke] = C[n.t];
+  const grp = document.createElementNS(ns,"g"); grp.setAttribute("class","node"); grp.setAttribute("data-id",n.id);
+  grp.setAttribute("tabindex","0");
+  const r = document.createElementNS(ns,"rect");
+  Object.entries({x:n.x,y:n.y,width:n.w,height:n.h,rx:9,fill,stroke,"stroke-width":2}).forEach(([k,v])=>r.setAttribute(k,v));
+  grp.appendChild(r);
+  const t1 = document.createElementNS(ns,"text");
+  t1.setAttribute("x",n.x+n.w/2); t1.setAttribute("y",n.y+(n.sub?n.h/2-3:n.h/2+5));
+  t1.setAttribute("text-anchor","middle"); t1.setAttribute("font-size","14"); t1.setAttribute("font-weight","700"); t1.setAttribute("fill","#1b2430");
+  t1.textContent = n.title; grp.appendChild(t1);
+  if(n.sub){
+    const t2 = document.createElementNS(ns,"text");
+    t2.setAttribute("x",n.x+n.w/2); t2.setAttribute("y",n.y+n.h/2+15);
+    t2.setAttribute("text-anchor","middle"); t2.setAttribute("font-size","11"); t2.setAttribute("fill","#5b6778");
+    t2.textContent = n.sub; grp.appendChild(t2);
+  }
+  const open = ()=>show(n, grp);
+  grp.addEventListener("click", open);
+  grp.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();open();} });
+  g.appendChild(grp);
+});
+
+function show(n, grp){
+  document.querySelectorAll(".node").forEach(x=>x.classList.remove("active"));
+  grp.classList.add("active");
+  const [ , stroke, label] = C[n.t];
+  document.getElementById("detail").innerHTML =
+    `<span class="tag" style="background:${stroke}">${label}</span>
+     <h3>${n.title}</h3><p style="margin:4px 0 10px">${n.what}</p>
+     <div class="grid2"><div><b>Objects / files</b><ul>${n.objs.map(o=>`<li><code>${o}</code></li>`).join("")}</ul></div>
+     <div><b>Key logic</b><ul>${n.pts.map(p=>`<li>${p}</li>`).join("")}</ul></div></div>`;
+}
+show(N[10], document.querySelector('[data-id="inc"]'));
+</script>
+</body>
+</html>
